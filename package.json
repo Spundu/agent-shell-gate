@@ -1,0 +1,67 @@
+{
+  "name": "agent-shell-gate",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Fail-closed PreToolUse gate for AI coding agents: a default-deny tool catalog, escalate-only argument inspectors, and a quote-aware bash lexer that only auto-runs a command it can PROVE is a single bare read-only program. 284 conformance fixtures + a 285-vector adversarial gate probe + a 242-check audit probe.",
+  "license": "MIT",
+  "keywords": [
+    "ai-agent",
+    "safety",
+    "shell",
+    "bash",
+    "lexer",
+    "classifier",
+    "claude-code",
+    "hook",
+    "pretooluse",
+    "fail-closed",
+    "default-deny"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "./dist/lib/index.js",
+  "types": "./dist/lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/lib/index.d.ts",
+      "default": "./dist/lib/index.js"
+    },
+    "./conformance": {
+      "types": "./dist/lib/conformance.d.ts",
+      "default": "./dist/lib/conformance.js"
+    }
+  },
+  "files": [
+    "dist",
+    "docs",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src probes build.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "probe": "npm run probe:gate && npm run probe:audit",
+    "probe:gate": "tsx probes/gate-probe.mts",
+    "probe:audit": "tsx probes/audit-probe.mts",
+    "verify": "npm run build && npm run typecheck && npm run lint && npm run test && npm run probe",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/node": "^22.10.2",
+    "esbuild": "^0.24.0",
+    "eslint": "^9.17.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.1",
+    "vitest": "^2.1.8"
+  }
+}
