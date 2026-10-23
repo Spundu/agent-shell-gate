@@ -1,7 +1,8 @@
 # Gate security model, red-team convergence, and the accepted residual
 
-> Written during the overnight autonomous hardening run, after 3 full adversarial red-team rounds
-> (a 4th, narrow, is running). Captures WHAT the gate guarantees, what it does NOT, and why.
+> Written during the June 2026 hardening run and updated after the September 2026 cold review of this
+> extract. Captures WHAT the gate guarantees, what it does NOT, and why. The rounds are told in full in
+> [RED-TEAM.md](RED-TEAM.md).
 
 ## 1. The model
 
@@ -18,7 +19,10 @@ Every agent tool call is classified by this package (originally the `safety` pac
 The gate is **escalate-only** (`maxTier`) and **fail-closed** (no audit ⇒ no action). It is enforced
 in host-owned code at the hook layer, unbypassable per-agent (subagents inherit it).
 
-## 2. What four red-team rounds taught us
+## 2. What the red-team rounds taught us
+
+Rounds 1–5 ran in June 2026 and confirmed 60 defects. Row 6 is the third round of a cold review of
+this public extract, in September 2026.
 
 | Round | Confirmed | Theme |
 |------|-----------|-------|
@@ -31,7 +35,9 @@ in host-owned code at the hook layer, unbypassable per-agent (subagents inherit 
 
 **The counts did not monotonically fall** (16→13→26→5→0), but round 5 is the first to find **no GREEN
 bypass** once the structural nets (§3b) were in place — the signal that the *class* attacks, not just
-individual bugs, are now closed. The bounded residual (§3) is the novel-secret-filename read, owned by
+individual bugs, are now closed. It was a floor, not a proof: the August and September reviews still
+found GREEN bypasses the five rounds never aimed at (`echo x >&3`, a bare `$VAR`, a function definition
+`ls() (…)`, recursive `grep` through option prefixes, a relative secret path). Each is now a vector. The bounded residual (§3) is the novel-secret-filename read, owned by
 the vault (Phase 3). Round 3 found *more* than round 2 — because it was sharpened
 to hunt GREEN bypasses and struck the two tails above. This is the key finding: the gate is a
 **program-allowlist + secret-path-blocklist**, and a blocklist of "files that hold secrets" can never
@@ -44,13 +50,14 @@ be complete.
   sort/tree/date/uniq/file/hostname incl. `--compress-program`/positional clock-set; `jq` removed from
   the allowlist; a flag-value host-escape backstop so `--compress-program=<interpreter>` is RED). Every
   member of `READ_ONLY_PROGRAMS` was audited for remaining exec/env/write primitives — none found.
-  Round 4 is the convergence confirmation.
+  Round 4 is the convergence confirmation. (Not the last word: the September cold review found two more
+  members, `date -s` glued to its value and `hostname -F<file>`, now guarded too.)
 
 - **Crown-jewel filename enumeration (ACCEPTED, BOUNDED RESIDUAL).** There will always be another
   credential-file format. A novel one (`~/.config/somenewcloud/token`) could be **read** at GREEN. We
   accept this as a bounded residual because:
   1. **Exfil requires a gated action.** A secret read into the Brain's context cannot LEAVE without a
-     network egress (all RED) or a Write (YELLOW) — both gated. So a GREEN secret-read is a
+     network egress (RED for known network programs, YELLOW for anything else) or a Write (YELLOW) — both gated. It does reach the model provider's transcript. So a GREEN secret-read is a
      confidentiality exposure in-context, not an exfiltration primitive.
   2. **The secret should not be on disk to read.** Phase 3 (the vault) is the real fix: crown-jewel
      secrets live in the vault, not in dotfiles the Brain can `cat`. The blocklist is a stopgap for the
@@ -95,16 +102,15 @@ zero residual at the cost of more asking.
 - **Conservative GREEN-read policy:** escalate reads of dotfiles / `~/.config|.local|.aws`-style paths
   to YELLOW structurally, instead of enumerating each secret. (Deferred: too disruptive for dev
   workflows today; revisit once the Brain's heavy dotfile reads are characterized.)
-- **Egress allowlist (the real exfil control):** today all network is RED; a JIT allowlist that the
+- **Egress allowlist (the real exfil control):** today known network programs are RED and any other network use asks; a JIT allowlist that the
   vault brokers means even a leaked-into-context secret has nowhere to go.
 - **Two-principal accounts (F2):** isolates the ONE secret that matters most — the audit seal key — so
-  even a perfect read bypass can't reach it. See `BATCH-E-AND-REDEPLOY.md`.
+  even a perfect read bypass can't reach it.
 
-## 5. Bottom line for the owner
+## 5. Bottom line
 
 The **critical invariant — a dangerous/world-changing/secret-touching command never AUTO-RUNS (GREEN)
-— holds** for every vector across five red-team rounds and a 285-vector self-probe, with the execute
-side-channel class structurally closed. The residual is the long tail of *novel* secret filenames being
-*readable* (not exfiltratable) at GREEN, which the vault (Phase 3) closes properly. The gate is safe to
-make live (after the §1 redeploy), and the LAW's "no money/vault tool until F1/F2/F5/F6/F7 closed +
-re-proven" is satisfied in code (F2's real fix pending the two-principal accounts).
+— holds** for every vector in the 285-vector probe and the conformance fixtures, with the execute
+side-channel class structurally closed. That is a statement about every attack found so far, not a proof
+about bash. The residual is the long tail of *novel* secret filenames being *readable* (not
+exfiltratable) at GREEN, which keeping secrets out of the agent's reach (a vault) closes properly.
